@@ -1,3 +1,4 @@
+# 2026-10-12 仓库迁移修复：script_url 改指新仓库 Pavel-LLL/egern/egern-scripts/（旧 uncle-lin666 链接已 404）
 # AgentRouter 自动签到 —— Egern 模块（最终版，链接已填好）
 #
 # 安装步骤：
@@ -32,5 +33,5 @@ scriptings:
   - schedule:
       name: agentrouter-checkin
       cron: "10 8 * * *"   # 每天 08:10（与 QX 原任务一致）
-      script_url: "https://raw.githubusercontent.com/uncle-lin666/egern-scripts/main/agentrouter_checkin.egern.js"
+      script_url: "https://raw.githubusercontent.com/Pavel-LLL/egern/refs/heads/main/egern-scripts/agentrouter_checkin.egern.js"
       timeout: 120
