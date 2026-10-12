@@ -2,11 +2,18 @@
  * czlab 兑换码每日分享 —— Egern 脚本
  *
  * 更新日志：
+ *   2026-10-12 手动运行时也完整推送：整点触发视为定时任务（允许5分钟漂移），
+ *              其余时刻视为手动运行，手动运行任何时间都推送提交状态+复制次数+
+ *              曝光汇总，方便随时查看
  *   2026-10-12 前十曝光统计改整点版：模块 cron 改为每小时整点运行（站内每小
  *              时随机重排），每次静默记录自己的码是否进前十及具体名次；每天
  *              20:00（CZLAB_REPORT_HOUR 可改）推送一次，汇总昨日完整 00:00–
  *              23:59 与今日截至当前的曝光次数及每次名次。同一小时不重复计，
  *              只保留近 7 天记录
+ *   2026-10-11 站点服务端故障（/api/codes 全部返回 HTTP 500 "error code: 1101"，
+ *              Cloudflare Worker 抛异常，站长侧问题）：查询遇到 5xx 时直接判
+ *              定站点故障并跳过提交（同一后端，提交也会 500），不再做无用尝试；
+ *              失败提示明确为"站点服务端故障"，每天 20:00 自动重试，恢复后自愈
  *   2026-10-09 初版
  *
  * 目标站点：https://code.czlab.dev（互相分享 Muse 兑换码的社区站）
@@ -325,21 +332,26 @@ export default async function (ctx) {
     log("czlab 兑换码分享运行");
     const t = getRuntimeConfig(ctx);
     const codes = collectCodes(ctx);
+    const now = new Date();
     const rh = reportHour(ctx);
-    const isReport = new Date().getHours() === rh;
+    // cron 整点触发视为定时任务（允许几分钟漂移）；其他时刻视为手动运行
+    const isScheduled = now.getMinutes() <= 5;
+    const manual = !isScheduled;
+    const isReport = isScheduled && now.getHours() === rh;
+    const needNotify = isReport || manual;
     if (!codes.length) {
       const msg = "未检测到兑换码配置：请在模块设置中填写 CZLAB_CODE（6 位兑换码），或在脚本 CONFIG 中填写 code";
       log(msg);
-      if (isReport) notify(ctx, "czlab 兑换码分享失败", msg);
+      if (needNotify) notify(ctx, "czlab 兑换码分享失败", msg);
       return;
     }
-    // 每次整点：静默记录前十曝光
+    // 每次运行：静默记录前十曝光
     await recordTop10Exposure(ctx, t, codes);
-    if (!isReport) {
+    if (!needNotify) {
       log("非推送时段（每天 " + rh + ":00 推送），本次仅记录曝光");
       return;
     }
-    // 推送时段：提交检查 + 曝光汇总
+    // 推送：提交检查 + 曝光汇总
     const results = [];
     for (const c of codes) {
       results.push(await processOne(ctx, t, c));
@@ -348,7 +360,8 @@ export default async function (ctx) {
     notify(ctx, "czlab 兑换码分享", body);
   } catch (e) {
     log("脚本异常: " + errorMessage(e));
-    if (new Date().getHours() === reportHour(ctx)) {
+    const now2 = new Date();
+    if (now2.getMinutes() > 5 || now2.getHours() === reportHour(ctx)) {
       notify(ctx, "czlab 兑换码分享异常", errorMessage(e));
     }
   }
