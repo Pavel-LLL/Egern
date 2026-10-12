@@ -1,6 +1,3 @@
-# 2026-10-12 仓库迁移修复：script_url 改指新仓库 Pavel-LLL/egern/egern-scripts/（旧 uncle-lin666 链接已 404）
-# czlab 兑换码每日分享 —— Egern 模块
-#
 # 安装步骤：
 #   1. 把 czlab_share.egern.js 和本文件一起上传到你的 GitHub 仓库 egern-scripts
 #      （仓库 → Add file → Upload files → Commit changes）
