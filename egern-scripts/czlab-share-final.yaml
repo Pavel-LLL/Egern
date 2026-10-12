@@ -1,3 +1,6 @@
+# 2026-10-12 仓库迁移修复：script_url 改指新仓库 Pavel-LLL/egern/egern-scripts/（旧 uncle-lin666 链接已 404）
+# czlab 兑换码每日分享 —— Egern 模块
+#
 # 安装步骤：
 #   1. 把 czlab_share.egern.js 和本文件一起上传到你的 GitHub 仓库 egern-scripts
 #      （仓库 → Add file → Upload files → Commit changes）
@@ -11,7 +14,7 @@
 #（export default async function(ctx)，ctx.http / ctx.storage / ctx.notify）编写。
 
 name: czlab 兑换码每日分享
-description: 每天定时把你的 Muse 兑换码提交到 code.czlab.dev 兑换池
+description: 每小时整点记录前十曝光，每天定时把你的 Muse 兑换码提交到 code.czlab.dev 兑换池
 author: lin
 
 # 在 Egern 模块设置页生成图形化表单，无需改脚本
@@ -26,10 +29,14 @@ env_schema:
     name: 站点地址
     description: 默认为 https://code.czlab.dev
     default_value: https://code.czlab.dev
+  CZLAB_REPORT_HOUR:
+    name: 每日推送时间（小时）
+    description: "0–23，默认 20；其余整点只静默记录前十曝光不推送"
+    default_value: "20"
 
 scriptings:
   - schedule:
       name: czlab-share
-      cron: "0 20 * * *"   # 每天 20:00（Egern 按设备本地时区执行；想换时间改这一行）
+      cron: "0 * * * *"   # 每小时整点运行：静默记录前十曝光；每天 CZLAB_REPORT_HOUR 点推送汇总并做提交检查
       script_url: "https://raw.githubusercontent.com/Pavel-LLL/egern/refs/heads/main/egern-scripts/czlab_share.egern.js"
       timeout: 120
