@@ -1,0 +1,91 @@
+# 中国联通聚合签到 —— Egern 模块
+#
+# 移植自青龙 Python 版 v1.0.8（19705.py），纯 JS 重写，可在 Egern 定时运行。
+# 包含：首页签到 / 联通祝福 / 天天领现金 / 权益超市 / 安全管家 / 联通云盘 /
+#       联通阅读 / 联通爱听 / 沃云手机 / 通通乡村 / 区域专区（云南/新疆/辽宁/安徽/商都）
+#
+# 安装步骤：
+#   1. 把 chinaUnicom.egern.js 和本文件一起上传到你的 GitHub 仓库 egern-scripts
+#      （仓库 → Add file → Upload files → Commit changes）
+#   2. 点开本文件 → Raw → 复制地址栏 URL
+#   3. Egern → Tools → Modules → + → 粘贴 URL → 添加
+#   4. 点进模块 → 设置 → 填写 UNICOM_COOKIE
+#   5. 按 cron 定时自动运行，结果推送通知
+#
+# 更新日志：
+#   2026-10-13 v1.0.0 初始移植版（282 个方法全量移植，加密库经 Python/Node/OpenSSL 交叉验证）
+
+name: 中国联通聚合签到
+description: 每日定时执行联通各模块签到任务并推送结果通知（Egern 移植版）
+author: ported-from-qinglong-19705
+
+env_schema:
+  UNICOM_COOKIE:
+    name: 联通账号
+    description: "手机号#密码，或 token#appid#手机号；多账号用 & 或换行分隔"
+  UNICOM_TEST_MODE:
+    name: 仅查询模式
+    description: "填 query 则只查询资产不做任务，留空为正常模式"
+  UNICOM_GRAB_AMOUNT:
+    name: 抢兑话费券面额
+    description: "抢兑模式目标话费券面额（元），默认 10"
+    default_value: "10"
+  UNICOM_ENABLE_SIGN:
+    name: 首页签到
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_ENABLE_TTLXJ:
+    name: 天天领现金
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_ENABLE_TTXC:
+    name: 通通乡村
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_ENABLE_LTZF:
+    name: 联通祝福
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_ENABLE_WOREAD:
+    name: 联通阅读
+    description: "true/false，默认 false（阅读任务较重）"
+    default_value: "false"
+  UNICOM_ENABLE_SECURITY:
+    name: 安全管家
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_ENABLE_LTYP:
+    name: 联通云盘
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_ENABLE_MARKET:
+    name: 权益超市
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_ENABLE_AITING:
+    name: 联通爱听
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_ENABLE_WOSTORE:
+    name: 沃云手机
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_ENABLE_REGIONAL:
+    name: 区域专区
+    description: "true/false，默认 true"
+    default_value: "true"
+  UNICOM_SIGN_GRAB_COUPON:
+    name: 首页抢兑话费券
+    description: "true/false，默认 false（每天 9:58/17:58 触发抢兑时才需要）"
+    default_value: "false"
+  UNICOM_CLOUD_UPLOAD_TIMEOUT:
+    name: 云盘上传超时（秒）
+    description: "默认 120"
+    default_value: "120"
+
+scriptings:
+  - schedule:
+      name: china-unicom-daily
+      cron: "0 8 * * *"   # 每天 08:00；抢兑需 9:58/17:58 另加定时
+      script_url: "https://raw.githubusercontent.com/Pavel-LLL/egern/main/egern-scripts/chinaUnicom.egern.js"
+      timeout: 1800
