@@ -19,6 +19,10 @@
  *     签名算法（wocare/aiting/yunnan）逐字节对照通过；全量 node --check 通过。
  *   2026-10-13 v1.0.1：修复 Egern 报错“Cannot declare a function that shadows
  *     'fmtYmdHms14'”——去重顶层函数定义（移入骨架）。
+ *   2026-10-13 v1.0.2：修复日志空白——blog()/this.log() 只写 blogLines 数组
+ *     从不输出，改为同步 console.log（与现有 Egern 脚本一致）；
+ *     修复 ctxStorage 从未注入导致 token 缓存失效；storageGetJSON/SetJSON
+ *     改用 ctx.storage.get/set（Egern 实际 API）。
  * ============================================================ */
 
 // ---------------- 基础工具 ----------------
@@ -497,10 +501,14 @@ function refreshEnvConsts() {
 
 // ctx.storage 便捷读写（token 缓存用；对应 Python 的 unicom_token_cache.json 文件）
 function storageGetJSON(key) {
-  try { return ctxStorage ? ctxStorage.getJSON(key) : null; } catch (e) { return null; }
+  try {
+    if (!ctxStorage) return null;
+    const raw = ctxStorage.get(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
 }
 function storageSetJSON(key, val) {
-  try { if (ctxStorage) ctxStorage.setJSON(key, val); } catch (e) {}
+  try { if (ctxStorage) ctxStorage.set(key, JSON.stringify(val)); } catch (e) {}
 }
 const UNICOM_TOKEN_CACHE_KEY = "unicom_token_cache";
 
@@ -622,6 +630,7 @@ let blogLines = [];
 function blog(msg) { // 模块级函数的日志（对应 Python print）
   const line = "[" + fmtTime() + "] " + msg;
   blogLines.push(line);
+  if (typeof console !== "undefined" && console.log) console.log(line);
 }
 
 class UserService {
@@ -698,6 +707,7 @@ class UserService {
   log(msg, notify) {
     const line = "[" + fmtTime() + "] 账号[" + this.index + "]" + msg;
     blogLines.push(line);
+    if (typeof console !== "undefined" && console.log) console.log(line);
     if (notify) this.notifyLogs.push(String(msg));
   }
 
@@ -8671,6 +8681,10 @@ await do_notify(users);
 
 export default async function(ctx) {
   try {
+    // 从 Egern 注入环境变量（模块设置页填写的值）
+    try { if (ctx && ctx.env && typeof ctx.env === "object") ctxEnv = ctx.env; } catch (_) {}
+    // 注入存储（token 缓存用）
+    try { if (ctx && ctx.storage) ctxStorage = ctx.storage; } catch (_) {}
     refreshGlobalConfig();
     refreshEnvConsts();
     await egernMain(ctx);
