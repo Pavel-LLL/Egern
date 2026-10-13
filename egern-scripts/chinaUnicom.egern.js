@@ -23,6 +23,11 @@
  *     从不输出，改为同步 console.log（与现有 Egern 脚本一致）；
  *     修复 ctxStorage 从未注入导致 token 缓存失效；storageGetJSON/SetJSON
  *     改用 ctx.storage.get/set（Egern 实际 API）。
+ *   2026-10-13 v1.0.3：修复云盘清理 400——rawRequest 的 opts.json 改用
+ *     jsonDumpsAscii（对应 Python ensure_ascii=True，中文转 \uXXXX）；
+ *     沃云手机加 businessHall 返回 data 调试日志；
+ *     修复爱听 access_token 硬编码抄错一位（32 vs 33 字符）；
+ *     aiting_login_flow 加 mobile 兜底。
  * ============================================================ */
 
 // ---------------- 基础工具 ----------------
@@ -570,7 +575,7 @@ class EgernSession {
       body = mp.body;
     } else if (opts.json !== undefined) {
       headers["Content-Type"] = headers["Content-Type"] || "application/json";
-      body = JSON.stringify(opts.json);
+      body = jsonDumpsAscii(opts.json); // 对应 Python json.dumps(ensure_ascii=True)
     } else if (opts.data !== undefined) {
       if (typeof opts.data === "string") { body = opts.data; }
       else {
@@ -6272,7 +6277,7 @@ Object.assign(UserService.prototype, {
   },
 
   async aiting_woread_login(phone) {
-    const access_token = "ODZERTZCMjA1NTg1MTFFNDNFTVRoRDRYw";
+    const access_token = "ODZERTZCMjA1NTg1MTFFNDNFMThDRDYw";
     let token_enc = "";
     if (this.token_online) {
       token_enc = await this.aiting_get_aes(this.token_online, WOREAD_KEY);
@@ -6400,6 +6405,7 @@ Object.assign(UserService.prototype, {
 
   async aiting_login_flow() {
     this.log("正在执行爱听登录流程...");
+    if (!this.mobile && this.account_mobile) this.mobile = this.account_mobile;
     const woread_token = await this.aiting_woread_login(this.mobile);
     if (!woread_token) return false;
     this.aiting_woread_token = woread_token;
@@ -6727,6 +6733,7 @@ Object.assign(UserService.prototype, {
         return null;
       }
       const redirect_url = (res1["data"] || {})["url"] || "";
+      this.log(`沃云手机: businessHall 返回 data: ${JSON.stringify(res1["data"]).slice(0, 300)}`);
       const match = redirect_url.match(/token=([^&]+)/);
       if (!match) {
         if (redirect_url.includes("protocol") || redirect_url.includes("sign")) {
