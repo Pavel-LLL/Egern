@@ -27,6 +27,6 @@ env_schema:
 scriptings:
   - schedule:
       name: czlab-share
-      cron: "0 * * * *"   # 每小时整点运行：静默记录前十曝光；每天 CZLAB_REPORT_HOUR 点推送汇总并做提交检查
+      cron: "0 */1 * * *"   # 每小时整点运行：静默记录前十曝光；每天 CZLAB_REPORT_HOUR 点推送汇总并做提交检查
       script_url: "https://raw.githubusercontent.com/Pavel-LLL/egern/refs/heads/main/egern-scripts/czlab_share.egern.js"
       timeout: 120
