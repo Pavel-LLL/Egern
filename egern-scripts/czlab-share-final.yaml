@@ -1,10 +1,24 @@
 # czlab 兑换码每日分享 —— Egern 模块
-# 说明：兑换码仅在池中公开展示 24 小时，每天提交一次可保持持续曝光。
+#
+# 安装步骤：
+#   1. 把 czlab_share.egern.js 和本文件一起上传到你的 GitHub 仓库 egern-scripts
+#      （仓库 → Add file → Upload files → Commit changes）
+#   2. 点开本文件 → Raw → 复制地址栏 URL
+#   3. Egern → Tools → Modules → + → 粘贴 URL → 添加
+#   4. 点进模块 → 设置 → 填写 CZLAB_CODE（你的 6 位 Muse 兑换码）
+#   5. 每小时整点自动运行：静默记录兑换码是否在前十曝光及名次；
+#      每天 20:00（CZLAB_REPORT_HOUR 可改）做提交检查并推送汇总
+#
+# 说明：兑换码仅在池中公开展示 24 小时；站内展示顺序每小时重排，
+# 每小时检查一次可完整统计曝光情况，码掉出池子时 20:00 自动补交。
+#
+# 更新日志：
+#   2026-10-15 cron 从每天 20:00 改为每小时整点；script_url 更新为新仓库地址。
 # Egern 的 JS 运行时与 QX/Surge 不兼容，本脚本按 Egern 官方 API
 #（export default async function(ctx)，ctx.http / ctx.storage / ctx.notify）编写。
 
-name: czlab 兑换码每日分享
-description: 每小时整点记录前十曝光，每天定时把你的 Muse 兑换码提交到 code.czlab.dev 兑换池
+name: czlab 兑换码每小时分享
+description: 每小时检查你的 Muse 兑换码在 code.czlab.dev 的前十曝光情况，每天 20:00 推送汇总
 author: lin
 
 # 在 Egern 模块设置页生成图形化表单，无需改脚本
@@ -20,13 +34,13 @@ env_schema:
     description: 默认为 https://code.czlab.dev
     default_value: https://code.czlab.dev
   CZLAB_REPORT_HOUR:
-    name: 每日推送时间（小时）
-    description: "0–23，默认 20；其余整点只静默记录前十曝光不推送"
+    name: 每日推送汇总时间
+    description: "每天几点推送曝光汇总（0-23，默认 20；其余整点静默只记录）"
     default_value: "20"
 
 scriptings:
   - schedule:
       name: czlab-share
-      cron: "0 */1 * * *"   # 每小时整点运行：静默记录前十曝光；每天 CZLAB_REPORT_HOUR 点推送汇总并做提交检查
-      script_url: "https://raw.githubusercontent.com/Pavel-LLL/egern/refs/heads/main/egern-scripts/czlab_share.egern.js"
+      cron: "0 * * * *"   # 每小时整点（Egern 按设备本地时区执行）
+      script_url: "https://raw.githubusercontent.com/Pavel-LLL/Egern/main/egern-scripts/czlab_share.egern.js"
       timeout: 120
