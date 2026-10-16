@@ -14,6 +14,7 @@
 #
 # 更新日志：
 #   2026-10-15 cron 从每天 20:00 改为每小时整点；script_url 更新为新仓库地址。
+#   2026-10-16 新增 compat_arguments：定时任务 cron 与超时可在模块编辑页自定义。
 # Egern 的 JS 运行时与 QX/Surge 不兼容，本脚本按 Egern 官方 API
 #（export default async function(ctx)，ctx.http / ctx.storage / ctx.notify）编写。
 
@@ -38,9 +39,24 @@ env_schema:
     description: "每天几点推送曝光汇总（0-23，默认 20；其余整点静默只记录）"
     default_value: "20"
 
+# 模块级参数：在 Egern「编辑模块」页可直接修改，无需改文件
+compat_arguments:
+  CRON_TASK: "0 * * * *"
+  CRON_TASK_TIMEOUT: 120
+
+compat_arguments_schema:
+  CRON_TASK:
+    name: "定时任务"
+    description: "自定义任务运行时间（cron 表达式，默认每小时整点）"
+    default_value: "0 * * * *"
+  CRON_TASK_TIMEOUT:
+    name: "定时任务超时时间"
+    description: "自定义定时任务超时时间（秒）"
+    default_value: 120
+
 scriptings:
   - schedule:
       name: czlab-share
-      cron: "0 * * * *"   # 每小时整点（Egern 按设备本地时区执行）
+      cron: "{{{CRON_TASK}}}"   # 在模块编辑页自定义
       script_url: "https://raw.githubusercontent.com/Pavel-LLL/Egern/main/egern-scripts/czlab_share.egern.js"
-      timeout: 120
+      timeout: {{{CRON_TASK_TIMEOUT}}}
