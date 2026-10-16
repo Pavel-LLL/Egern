@@ -1,4 +1,12 @@
 // AppStore 国区限免小组件
+//
+// 更新日志：
+//   2026-10-16 新增内购限免检测：Lookup 验证通过后，抓 apps.apple.com 应用页
+//              HTML（服务端渲染，内含内购名/价格；Lookup 接口无此字段），只
+//              保留至少 1 个内购现价为 0 的 App；内购页按应用缓存 6 小时降频
+//   2026-10-11 配色移植：Bright AI 仪表盘配色（奶油底 #FAF6F0 + 主蓝 #3070F0 +
+//              橘 #E07050 + 墨黑文字），限免徽标用橘色、可点击箭头用蓝色，
+ //              深色模式为同色系暖黑变体
 // 与 App_Store_Widget_v2.JS（美区版）同一数据链路，验证区换成中国区
 //
 // （2026-10-10 实测）
@@ -14,6 +22,17 @@
 //
 // 用法：把本文件传到你的 GitHub 仓库，用 raw 链接作为 Egern 小组件的脚本 URL。
 
+// Bright AI 配色移植（2026-10-11）：奶油底 + 白卡片 + 主蓝 + 橘点缀 + 墨黑文字
+// 深色模式为同色系暖黑变体；所有色值唯一、无棕色
+const THEME = {
+bg:        { light: '#FAF6F0', dark: '#161310' }, // 页面奶油底 / 暖黑底
+ink:       { light: '#1B1B1F', dark: '#F5F1E8' }, // 主文字
+secondary: { light: '#8E8E93', dark: '#A39E93' }, // 次级文字
+blue:      { light: '#3070F0', dark: '#7AA5FF' }, // 主色（可点击元素）
+orange:    { light: '#E07050', dark: '#F0927A' }, // 点缀色（限免徽标）
+divider:   { light: '#EAE3D8', dark: '#38322A' }, // 分隔线
+};
+
 export default async function(ctx) {
 const widgetFamily = ctx.widgetFamily || 'systemMedium';
 
@@ -27,12 +46,12 @@ if (['systemSmall', 'accessoryCircular', 'accessoryInline', 'accessoryRectangula
 return {
 type: 'widget',
 padding: 16,
-backgroundColor: { light: '#FFFFFF', dark: '#2C2C2E'},
+backgroundColor: THEME.bg,
 children: [{
 type: 'text',
 text: '请使用中号或大号组件',
 font: { size: 'callout'},
-textColor: { light: '#1D1D1F', dark: '#F5F5F7'},
+textColor: THEME.ink,
 textAlign: 'center'
 }]
 };
@@ -144,8 +163,15 @@ const status = Number(resp.status || 0);
 if (status < 200 || status >= 300) throw new Error('iTunes Lookup HTTP ' + status);
 const data = await resp.json();
 
-const apps = [];
+// 按发现顺序（最新在前）组装：lookup 返回的顺序是乱的，必须按 ids 的顺序取
+const byId = {};
 for (const r of (data.results || [])) {
+byId[String(r.trackId)] = r;
+}
+const apps = [];
+for (const tid of freeIds.slice(0, 100)) {
+const r = byId[tid];
+if (!r) continue; // 国区未上架 → 不要
 if (Number(r.price)!== 0) continue; // 国区没免费 / 已涨回去 → 不要
 const name = (r.trackName || '').trim(); // 国区本地化名称
 if (!name) continue;
@@ -153,9 +179,85 @@ apps.push({
 name: name.length > 50? name.substring(0, 50).trim() + '...': name,
 url: r.trackViewUrl || `https://apps.apple.com/app/id${r.trackId}`,
 kind: 'app',
+tid: tid,
 });
 }
-return apps;
+// 内购限免过滤：只要至少 1 个内购现价为 0 的 App
+return await filterByFreeIAP(ctx, UA, apps, 'CN');
+}
+
+// ============ 内购限免检测 ============
+// Apple 页面（apps.apple.com）是服务端渲染，HTML 里带内购名/价格
+// （iTunes Lookup 接口无内购字段）。只保留"至少 1 个内购现价为 0"的 App。
+const IAP_SECTION_TITLES = ['In-App Purchases', 'App内购买'];
+const IAP_CACHE_TTL = 6 * 60 * 60 * 1000; // 内购页按应用缓存 6 小时
+
+function parseIAPPrice(s) {
+if (!s) return NaN;
+const t = String(s).trim();
+if (/^(free|免费)$/i.test(t)) return 0;
+const n = parseFloat(t.replace(/[^0-9.]/g, ''));
+return isNaN(n) ? NaN : n;
+}
+
+function extractIAPPairs(html) {
+for (const title of IAP_SECTION_TITLES) {
+const dtIdx = html.indexOf('>' + title + '</dt>');
+if (dtIdx < 0) continue;
+const endIdx = html.indexOf('</dd>', dtIdx);
+if (endIdx < 0) continue;
+const section = html.slice(dtIdx, endIdx);
+const pairs = [];
+const re = /<div class="text-pair[^"]*">\s*<span>([^<]*)<\/span>\s*<span>([^<]*)<\/span>/g;
+let m;
+while ((m = re.exec(section)) !== null) {
+pairs.push({ name: m[1].trim(), price: m[2].trim() });
+}
+if (pairs.length) return pairs;
+}
+return [];
+}
+
+async function appHasFreeIAP(ctx, UA, app, country) {
+const tid = app.tid || app.url || app.name;
+const cacheKey = `iap_${country}_${tid}`;
+try {
+const c = ctx.storage.getJSON(cacheKey);
+if (c && c.time && Date.now() - c.time < IAP_CACHE_TTL && Array.isArray(c.pairs)) {
+return c.pairs.some(p => parseIAPPrice(p.price) === 0);
+}
+} catch (e) { /* ignore */ }
+let pairs = [];
+try {
+const resp = await ctx.http.get(app.url, {
+timeout: 15000,
+headers: { 'Accept': 'text/html', 'User-Agent': UA },
+});
+if (Number(resp.status || 0) === 200) {
+const html = await resp.text();
+pairs = extractIAPPairs(html);
+}
+} catch (e) {
+console.log(`内购页抓取失败 ${app.name}: ${e.message}`);
+}
+try {
+ctx.storage.setJSON(cacheKey, { pairs, time: Date.now() });
+} catch (e) { /* ignore */ }
+return pairs.some(p => parseIAPPrice(p.price) === 0);
+}
+
+async function filterByFreeIAP(ctx, UA, apps, country) {
+if (!apps.length) return [];
+const results = await Promise.all(apps.map(async (app) => {
+try {
+return (await appHasFreeIAP(ctx, UA, app, country)) ? app : null;
+} catch (e) {
+return null;
+}
+}));
+const kept = results.filter(Boolean);
+console.log(`内购限免过滤(${country}): ${apps.length} → ${kept.length} 款`);
+return kept;
 }
 
 // ============ 构建组件 ============
@@ -177,7 +279,7 @@ children: [
 type: 'text',
 text: `${title} · ${apps.length}款`,
 font: { size: 'subheadline', weight: 'bold'},
-textColor: { light: '#1D1D1F', dark: '#F5F5F7'},
+textColor: THEME.ink,
 flex: 1
 },
 {
@@ -191,13 +293,13 @@ type: 'image',
 src: 'sf-symbol:arrow.clockwise',
 width: 14,
 height: 14,
-color: { light: '#86868B', dark: '#8E8E93'}
+color: THEME.secondary
 },
 {
 type: 'text',
 text: timeLabel,
 font: { size: 'caption2'},
-textColor: { light: '#86868B', dark: '#8E8E93'}
+textColor: THEME.secondary
 }
 ]
 }
@@ -209,7 +311,7 @@ children.push({
 type: 'text',
 text: '暂无限免应用\n\n请检查网络或稍后再试',
 font: { size: 'callout'},
-textColor: { light: '#666', dark: '#AAA'},
+textColor: THEME.secondary,
 textAlign: 'center',
 padding: [20, 0]
 });
@@ -219,7 +321,7 @@ if (i > 0) {
 children.push({
 type: 'stack',
 height: 0.5,
-backgroundColor: { light: 'rgba(0,0,0,0.08)', dark: 'rgba(255,255,255,0.12)'},
+backgroundColor: THEME.divider,
 margin: [4, 0]
 });
 }
@@ -235,7 +337,7 @@ children: [
 type: 'text',
 text: app.name,
 font: { size: 'subheadline'},
-textColor: { light: '#1D1D1F', dark: '#F5F5F7'},
+textColor: THEME.ink,
 flex: 1,
 maxLines: 2,
 minScale: 0.85
@@ -244,7 +346,7 @@ minScale: 0.85
 type: 'text',
 text: '限免',
 font: { size: 'caption2', weight: 'semibold'},
-textColor: '#34C759',
+textColor: THEME.orange,
 maxLines: 1
 },
 {
@@ -252,7 +354,7 @@ type: 'image',
 src: 'sf-symbol:chevron.right',
 width: 12,
 height: 12,
-color: { light: '#86868B', dark: '#8E8E93'}
+color: THEME.blue
 }
 ]
 });
@@ -263,7 +365,7 @@ return {
 type: 'widget',
 padding: [10, 12, 10, 12],
 gap: 4,
-backgroundColor: { light: '#FFFFFF', dark: '#2C2C2E'},
+backgroundColor: THEME.bg,
 refreshAfter: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
 children: children
 };
