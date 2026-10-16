@@ -1,9 +1,8 @@
 // AppStore 国区+美区综合限免小组件
 //
 // 更新日志：
-//   2026-10-16 内购限免检测修复版：上一版两个 bug——①手机 UA 被 301 到
-//              itms-appss:// 致 Egern 报 400；②用 </dl> 做段结束但实际是 </dd>。
-//              改用桌面 UA 抓页、修正解析，美区/国区真实页面验证通过。
+//   2026-10-17 回滚内购限免检测：恢复为 Lookup 验证版（内购限免过于罕见，
+//              过滤后小组件经常为空）。
 //   2026-10-11 配色移植：Bright AI 仪表盘配色（奶油底 #FAF6F0 + 主蓝 #3070F0 +
 //              橘 #E07050 + 墨黑文字），限免徽标用橘色、可点击箭头用蓝色，
  //              深色模式为同色系暖黑变体
@@ -73,8 +72,8 @@ let cacheTime = 0;
 try {
 const freeIds = await fetchFreeIds(ctx, UA); // 两区共用一次发现
 const [cn, us] = await Promise.all([
-verifyByLookup(ctx, UA, freeIds, 'CN').then(apps => filterByFreeIAP(ctx, UA, apps, 'CN')),
-verifyByLookup(ctx, UA, freeIds, 'US').then(apps => filterByFreeIAP(ctx, UA, apps, 'US')),
+verifyByLookup(ctx, UA, freeIds, 'CN'),
+verifyByLookup(ctx, UA, freeIds, 'US'),
 ]);
 cnApps = cn;
 usApps = us;
@@ -189,84 +188,9 @@ if (!name) continue;
 apps.push({
 name: name.length > 50? name.substring(0, 50).trim() + '...': name,
 url: r.trackViewUrl || `https://apps.apple.com/app/id${r.trackId}`,
-tid: tid,
 });
 }
 return apps;
-}
-
-// ============ 内购限免检测 ============
-// iTunes Lookup 无内购字段；抓 apps.apple.com 应用页（桌面 UA，服务端渲染 HTML
-// 内含内购名/价格）。只保留"至少 1 个内购现价为 0"的 App。
-// 注意：手机 UA 会被 301 到 itms-appss://，必须用桌面 UA。
-const UA_DESKTOP = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
-const IAP_SECTION_TITLES = ['In-App Purchases', 'App内购买'];
-const IAP_CACHE_TTL = 6 * 60 * 60 * 1000; // 内购页按应用缓存 6 小时
-function parseIAPPrice(s) {
-if (!s) return NaN;
-const t = String(s).trim();
-if (/^(free|\u514d\u8d39)$/i.test(t)) return 0;
-const n = parseFloat(t.replace(/[^0-9.]/g, ''));
-return isNaN(n) ? NaN : n;
-}
-function extractIAPPairs(html) {
-for (const title of IAP_SECTION_TITLES) {
-const dtIdx = html.indexOf('>' + title + '<');
-if (dtIdx < 0) continue;
-const endIdx = html.indexOf('</dd>', dtIdx);
-if (endIdx < 0) continue;
-const section = html.slice(dtIdx, endIdx);
-const pairs = [];
-const re = /<span>([^<]*)<\/span>\s*<span>([^<]*)<\/span>/g;
-let m;
-while ((m = re.exec(section)) !== null) {
-pairs.push({ name: m[1].trim(), price: m[2].trim() });
-}
-if (pairs.length) return pairs;
-}
-return [];
-}
-async function appHasFreeIAP(ctx, UA, app, country) {
-const tid = app.tid || app.url || app.name;
-const cacheKey = `iap_${country}_${tid}`;
-try {
-const c = ctx.storage.getJSON(cacheKey);
-if (c && c.time && Date.now() - c.time < IAP_CACHE_TTL && Array.isArray(c.pairs)) {
-return c.pairs.some(p => parseIAPPrice(p.price) === 0);
-}
-} catch (e) { /* ignore */ }
-let pairs = [];
-try {
-const resp = await ctx.http.get(app.url, {
-timeout: 15000,
-headers: { 'Accept': 'text/html', 'User-Agent': UA_DESKTOP },
-});
-if (Number(resp.status || 0) === 200) {
-const html = await resp.text();
-pairs = extractIAPPairs(html);
-} else {
-throw new Error('HTTP ' + resp.status);
-}
-} catch (e) {
-console.log(`内购页抓取失败 ${app.name}: ${e.message}`);
-}
-try {
-ctx.storage.setJSON(cacheKey, { pairs, time: Date.now() });
-} catch (e) { /* ignore */ }
-return pairs.some(p => parseIAPPrice(p.price) === 0);
-}
-async function filterByFreeIAP(ctx, UA, apps, country) {
-if (!apps.length) return [];
-const results = await Promise.all(apps.map(async (app) => {
-try {
-return (await appHasFreeIAP(ctx, UA, app, country)) ? app : null;
-} catch (e) {
-return null;
-}
-}));
-const kept = results.filter(Boolean);
-console.log(`内购限免过滤(${country}): ${apps.length} → ${kept.length} 款`);
-return kept;
 }
 
 // ============ 构建组件 ============
