@@ -1,7 +1,18 @@
 # Emby 域名规则集 —— 直连
 #
+# 用法：
+# 1. 把本文件传到你的 GitHub 仓库（如 egern-scripts）
+# 2. 在 Egern 的规则设置里添加规则集，URL 填该文件的 raw 链接
+# 3. 策略选择 DIRECT（直连）
+#
+# 说明：用完整主机名做 domain_suffix，命中自身及子域名；
+# 不截短到注册域，避免误伤同一托管域名下的他人子域名。
+# 更新日志：
+#   2026-10-17 初版，2 个 Emby 域名（从 emby-proxy.yaml 移出改直连）
+#   2026-10-17 新增 emby.yusen.us.ci、mi.ooxoo.cyou（4 个）
+
 domain_suffix_set:
   - "cf.sfcj.org"
+  - "emby.yusen.us.ci"
   - "hk2.dylan.xin"
   - "mi.ooxoo.cyou"
-  - "emby.yusen.us.ci"
