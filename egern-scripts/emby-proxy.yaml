@@ -10,10 +10,10 @@
 # 更新日志：
 #   2026-10-12 初版，14 个 Emby 域名
 #   2026-10-17 新增 hk2.dylan.xin，去除 emby.yusen.us.ci（仍 14 个）
+#   2026-10-17 hk2.dylan.xin、cf.sfcj.org 改为直连，从本集移除（12 个）
 
 domain_suffix_set:
   - "bb.emby.edu.kg"
-  - "cf.sfcj.org"
   - "eb.zzm.li"
   - "emby.bbqwq.com"
   - "emby.hellohk.me"
@@ -21,7 +21,6 @@ domain_suffix_set:
   - "emby.zhouzhou00.dpdns.org"
   - "emby1.69yun69.net"
   - "goemby.entertang.work"
-  - "hk2.dylan.xin"
   - "mi.ooxoo.cyou"
   - "nay.007.us.kg"
   - "suiying.qutama.de"
