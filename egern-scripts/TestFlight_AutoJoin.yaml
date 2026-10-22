@@ -1,0 +1,29 @@
+name: TestFlight 监控+自动加入
+
+description: |
+  基于 iBL3ND《TestFlight 监控》扩展：每分钟监控 TF 名额（纯网页探测、
+  无 MITM，不影响 TestFlight App 打开）；探测到名额且已存有账号令牌时
+  自动加入测试，无令牌时与原版一样只通知手动加入。
+  令牌需先用 QX 抓一次并用 TF_token_fill.egern.js 填入存储。
+
+author: iBL3ND（原监控） / Muse（自动加入扩展）
+
+icon: https://iili.io/nwJtmNI.png
+
+compat_arguments:
+  tfIds: ''
+
+compat_arguments_schema:
+  tfIds:
+    name: TestFlight ID
+    description: 要监控的 ID，多个用逗号分隔 示例 hmC52rdF,b6X29Sva，可带 #备注名
+    default_value: ''
+
+scriptings:
+  - schedule:
+      name: testflight-monitor-autojoin
+      cron: '* * * * * ?'
+      script_url: https://raw.githubusercontent.com/Pavel-LLL/Egern/main/egern-scripts/TestFlight_AutoJoin.js
+      timeout: 300
+      env:
+        TF: '{{{tfIds}}}'
