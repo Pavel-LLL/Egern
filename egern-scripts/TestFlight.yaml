@@ -19,6 +19,6 @@ scriptings:
   - schedule:
       name: testflight-monitor
       cron: '*/30 * * * *'
-      script_url: https://raw.githubusercontent.com/Pavel-LLL/Egern/main/egern-scripts/TestFlight.js
+      script_url: https://raw.githubusercontent.com/Pavel-LLL/Egern/refs/heads/main/egern-scripts/TestFlight%E8%87%AA%E6%89%98%E7%AE%A1%E5%89%AF%E6%9C%AC.js
       env:
         TF: '{{{tfIds}}}'
