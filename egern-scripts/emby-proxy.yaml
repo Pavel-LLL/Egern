@@ -7,11 +7,11 @@
 #
 # 说明：用完整主机名做 domain_suffix，命中自身及子域名；
 # 不截短到注册域，避免误伤同一托管域名下的他人子域名。
-
 domain_suffix_set:
   - "bb.emby.edu.kg"
   - "eb.zzm.li"
   - "emby.bbqwq.com"
+  - "emby.di0.uk"
   - "emby.hellohk.me"
   - "emby.staryuki.com"
   - "emby.zhouzhou00.dpdns.org"
